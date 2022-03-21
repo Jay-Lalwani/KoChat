@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        
+        <link rel='stylesheet' type = 'text/css' href='Home/home.css'>
+        <script src="https://cdn.socket.io/4.4.0/socket.io.min.js" integrity="sha384-1fOn6VtTq3PWwfsOrk45LnYcGosJwzMHv+Xh/Jx5303FVOXzEnw0EpLv30mtjmlj" crossorigin="anonymous"></script>
+
+    <title>Chat</title>
+
+    </head>
+    <body>
+    <div id='containerwrapper'>
+  <div id="messagecontainer">
+      
+  </div>
+  </div> 
+  <form id="sendcontainer" autocomplete="false">
+    <input type="text" id="messageinput" autofocus>
+    <button type="submit" id="send-button">Send</button>
+  </form>
+  
+  <div id="linecontainer">
+  </div>
+  <form id="issuecontainer" autocomplete="false">
+      {{#if admin}}
+      <button type="submit" id="issue-button">Clear the Line</button>
+      {{else}}
+    <button type="submit" id="issue-button">Join the Line</button>
+    {{/if}}
+  </form>
+  
+          <script class='{{Name}}'>
+            var socket = io.connect('https://web-chat-test.sites.tjhsst.edu/' )
+            var messageCounter = 0
+            var issueCounter = 0
+            var joinLine = true;
+             messageContainer = document.getElementById('messagecontainer')
+             messageForm = document.getElementById('sendcontainer')
+             messageInput = document.getElementById('messageinput')
+             
+             lineContainer = document.getElementById('linecontainer')
+             lineForm = document.getElementById('issuecontainer')
+             lineButton = document.getElementById('issue-button')
+             
+            // name = prompt('What is your name?')
+            var params = document.body.getElementsByTagName('script');
+            query = params[0].classList;
+            var name = query[0];
+            console.log(name)
+            socket.emit('new-user', name)
+
+            socket.on('chat-message', function(data) {
+                var position;
+                if(data.name == (name)){
+                    position = 'right';
+                }
+                else{
+                    position = 'left';
+                }
+            appendMessage(`${data.name}: ${data.message}`, position)
+            })
+
+            socket.on('user-connected', name => {
+            appendMessage(`${name} connected`, 'left')
+            })
+            
+            socket.on('line-add', function(data) {
+            appendIssue(`${data.name}`)
+            })
+
+            socket.on('line-clear', function(data){
+                clearLine()
+            })
+            
+            socket.on('line-adjust', function(data) {
+            if(name == data.name){
+                joinLine = true;
+                lineButton.innerText = "Join the line"
+            }
+            var children = lineContainer.childNodes;
+            for(var i=0; i < children.length; i++){
+                if( children[i].className == data.name){
+                    lineContainer.removeChild(children[i])
+                    break;
+                }
+            }
+            issueCounter = issueCounter - 1
+            })
+            
+            
+            socket.on('active-users', users => {
+            appendMessage(`${users} other users are active now`, 'left')
+            })
+
+            socket.on('user-disconnected', name => {
+            appendMessage(`${name} disconnected`, 'left')
+            })
+
+            messageForm.addEventListener('submit', e => {
+            e.preventDefault()
+            const message = messageInput.value
+            socket.emit('send-chat-message', message)
+           
+            
+            messageInput.value = ''
+            })
+            
+            lineForm.addEventListener('submit', e => {
+            e.preventDefault()
+            if({{admin}}){
+                socket.emit('send-clear-line', name)
+            }
+            else{
+                if(joinLine){
+                    joinLine = false;
+                        
+                    lineButton.innerText = "Leave the line"
+                    
+                    socket.emit('send-line-add', name)
+                }
+                else{
+                    joinLine = true;
+                    
+                     lineButton.innerText = "Join the line"
+                    
+                    socket.emit('send-line-remove', name)
+                }
+            }
+   
+            })
+
+            function clearLine(){
+                while (lineContainer.firstChild) {
+                        lineContainer.removeChild(lineContainer.firstChild);
+                    }
+                issueCounter = 0;
+                if(!{{admin}}){
+                joinLine = true;
+                lineButton.innerText = "Join the line"
+                }
+            }
+            
+            function appendMessage(message, pos) 
+            {
+ 
+            while(messageCounter >= 25){
+                messageContainer.removeChild(messageContainer.firstChild);
+                messageCounter = messageCounter - 1;
+            }
+            const messageElement = document.createElement("div");
+            messageElement.innerText = message;
+            messageElement.className = pos;
+            messageContainer.append(messageElement);
+           
+            messageCounter = messageCounter + 1;
+            
+            }
+
+            function appendIssue(issue) 
+            {
+            while(issueCounter >= 35){
+                lineContainer.removeChild(lineContainer.firstChild);
+                issueCounter = issueCounter - 1;
+            }
+            const issueElement = document.createElement("div");
+            issueElement.innerText = issue;
+            issueElement.className = issue;
+            if({{admin}})
+            {
+                issueElement.setAttribute("onclick", "adminRemove(this)")
+                issueElement.setAttribute("onmouseover", "mouseOver(this)")
+                issueElement.setAttribute("onmouseout", "mouseOut(this)")
+
+            }
+            lineContainer.append(issueElement);
+            
+            issueCounter = issueCounter + 1;
+            }
+            
+            function adminRemove(element)
+            {   
+                if(name == element.className){
+                joinLine = true;
+                lineButton.innerText = "Join the line"
+                }
+                if(element.className)
+                console.log('onclick')
+                console.log(element)
+                lineContainer.removeChild(element);
+                issueCounter = issueCounter - 1;
+                socket.emit('send-admin-remove', element.className)
+            }
+            
+            function mouseOver(element) {
+                  element.style.color = "red";
+                  element.style.textDecoration = "line-through";
+                }
+                
+                function mouseOut(element) {
+                  element.style.color = "black";
+                  element.style.textDecoration = "none";
+                }
+        </script>
+</body>
+</html>
